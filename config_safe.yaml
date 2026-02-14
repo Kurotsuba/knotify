@@ -1,0 +1,9 @@
+poll_interval_secs: 60 # WARNING: this interval will exceed YouTube Data API v3 usage limit in 2 hrs
+youtube_api_key: "<your_api_key>" # get this from GCP
+channels:
+  - platform: youtube
+    channel_id: "UCdn5BQ06XqgXoAxIhbqw5Rg"
+    name: "ShirakamiFubuki"
+notifiers:
+  - type: discord
+    endpoint: "<your_discort_webhook_url>"
