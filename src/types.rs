@@ -14,4 +14,5 @@ pub struct StreamInfo {
     pub channel_name: String,
     pub title: String,
     pub url: String,
+    pub cover: Option<String>,
 }

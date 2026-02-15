@@ -68,9 +68,26 @@ async fn main() {
         .collect();
 
     let mut platforms: HashMap<String, Box<dyn Platform>> = HashMap::new();
-    platforms.insert("youtube".into(), Box::new(
-        platform::youtube::YouTubePlatform::new(app_config.youtube_api_key.clone())
-    ));
+    for chn in &app_config.channels {
+        if platforms.contains_key(&chn.platform) {
+            continue;
+        }
+        match chn.platform.as_str() {
+            "youtube" => {
+                let api_key = app_config.youtube_api_key.clone()
+                    .expect("youtube_api_key required for YouTube channels");
+                platforms.insert("youtube".into(), Box::new(
+                    platform::youtube::YouTubePlatform::new(api_key)
+                ));
+            }
+            "bilibili" => {
+                platforms.insert("bilibili".into(), Box::new(
+                    platform::bilibili::BilibiliPlatform::new()
+                ));
+            }
+            other => println!("Unknown platform: {}", other),
+        }
+    }
 
     loop {
         check_and_notify(&platforms, &notifiers, &app_config.channels, &mut live_status).await;

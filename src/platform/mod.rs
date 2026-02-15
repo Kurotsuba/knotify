@@ -4,6 +4,7 @@ use crate::types::StreamInfo;
 use crate::config::ChannelConfig;
 
 pub mod youtube;
+pub mod bilibili;
 
 #[async_trait]
 pub trait Platform: Send + Sync {

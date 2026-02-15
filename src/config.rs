@@ -9,7 +9,7 @@ pub struct AppConfig {
     #[serde(default = "default_state_file")]
     pub state_file: String,
     
-    pub youtube_api_key: String,
+    pub youtube_api_key: Option<String>,
     pub channels: Vec<ChannelConfig>,
     pub notifiers: Vec<NotifierConfig>,
 }

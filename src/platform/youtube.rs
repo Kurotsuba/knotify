@@ -43,13 +43,17 @@ impl Platform for YouTubePlatform {
                 let channel_name = item["snippet"]["channelTitle"].as_str().unwrap_or_default();
                 let title = item["snippet"]["title"].as_str().unwrap_or_default();
                 let video_id = item["id"]["videoId"].as_str().unwrap_or_default();
+                let cover = item["snippet"]["thumbnails"]["high"]["url"]
+                    .as_str()
+                    .map(|s| s.to_string());
 
-                Ok(Some(StreamInfo { 
+                Ok(Some(StreamInfo {
                     platform: "youtube".to_string(),
                     channel_id: channel.channel_id.clone(),
                     channel_name: channel_name.to_string(),
                     title: title.to_string(),
-                    url: format!("https://www.youtube.com/watch?v={video_id}")
+                    url: format!("https://www.youtube.com/watch?v={video_id}"),
+                    cover,
                 }))
             }
             None => Ok(None),
