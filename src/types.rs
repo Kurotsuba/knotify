@@ -16,3 +16,9 @@ pub struct StreamInfo {
     pub url: String,
     pub cover: Option<String>,
 }
+
+#[derive(Debug, Clone)]
+pub struct Notification {
+    pub message: String,
+    pub image: Option<Vec<u8>>,
+}

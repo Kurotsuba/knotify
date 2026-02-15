@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use anyhow::Result;
 
 use crate::notifier::Notifier;
-use crate::types::StreamInfo;
+use crate::types::Notification;
 
 pub struct DiscordNotifier {
     client: reqwest::Client,
@@ -24,22 +24,29 @@ impl Notifier for DiscordNotifier {
         "discord"
     }
 
-    async fn notify(&self, info: &StreamInfo) -> Result<()>{
+    async fn notify(&self, notification: &Notification) -> Result<()>{
         let mut embed = serde_json::json!({
-            "description": format!(
-                "【直播提醒】\n{}开播啦\n{}\n直播间地址：{}",
-                info.channel_name, info.title, info.url
-            ),
+            "description": &notification.message,
             "color": 0x66ffcc
         });
 
-        if let Some(cover) = &info.cover {
-            embed["image"] = serde_json::json!({ "url": cover });
+        if notification.image.is_some() {
+            embed["image"] = serde_json::json!({ "url": "attachment://cover.jpg" });
         }
 
-        let body = serde_json::json!({ "embeds": [embed] });
+        let payload = serde_json::json!({ "embeds": [embed] });
 
-        self.client.post(&self.webhook_url).json(&body).send().await?;
+        let mut form = reqwest::multipart::Form::new()
+            .text("payload_json", payload.to_string());
+
+        if let Some(image_data) = &notification.image {
+            let part = reqwest::multipart::Part::bytes(image_data.clone())
+                .file_name("cover.jpg")
+                .mime_str("image/jpeg")?;
+            form = form.part("files[0]", part);
+        }
+
+        self.client.post(&self.webhook_url).multipart(form).send().await?;
         Ok(())
     }
 }

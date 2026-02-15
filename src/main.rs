@@ -40,8 +40,24 @@ async fn check_and_notify (
 
         let Some(sinfo) = result else {continue;};
 
+        let image = match &sinfo.cover {
+            Some(url) => match reqwest::get(url).await {
+                Ok(resp) => resp.bytes().await.ok().map(|b| b.to_vec()),
+                Err(e) => { println!("Failed to fetch cover image: {}", e); None }
+            },
+            None => None,
+        };
+
+        let notification = types::Notification {
+            message: format!(
+                "【直播提醒】\n{}开播啦\n{}\n直播间地址：{}",
+                sinfo.channel_name, sinfo.title, sinfo.url
+            ),
+            image,
+        };
+
         for ntf in notifiers {
-            if let Err(e) = ntf.notify(&sinfo).await {
+            if let Err(e) = ntf.notify(&notification).await {
                 println!("Notify error {}: {}", ntf.name(), e);
             }
         }
