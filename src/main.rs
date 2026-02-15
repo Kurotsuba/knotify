@@ -51,7 +51,7 @@ async fn check_and_notify (
         let notification = types::Notification {
             message: format!(
                 "【直播提醒】\n{}开播啦\n{}\n直播间地址：{}",
-                sinfo.channel_name, sinfo.title, sinfo.url
+                chn.name, sinfo.title, sinfo.url
             ),
             image,
         };
@@ -90,10 +90,8 @@ async fn main() {
         }
         match chn.platform.as_str() {
             "youtube" => {
-                let api_key = app_config.youtube_api_key.clone()
-                    .expect("youtube_api_key required for YouTube channels");
                 platforms.insert("youtube".into(), Box::new(
-                    platform::youtube::YouTubePlatform::new(api_key)
+                    platform::youtube::YouTubePlatform::new()
                 ));
             }
             "bilibili" => {

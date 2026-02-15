@@ -5,9 +5,10 @@ Kurotsuba's Streamer Notifier - A lightweight CLI tool that monitors streaming p
 ## Features
 
 - **Multi-platform monitoring**: YouTube, Bilibili
-- **Notification support**: Discord webhooks
+- **Notification support**: Discord webhooks with embedded cover images
+- **No API keys required**: YouTube uses web scraping, Bilibili uses public API
 - **Flexible runtime**: Run as a daemon (polling loop) or one-shot (cron-friendly)
-- **Deduplication**: Tracks live status to avoid duplicate notifications
+- **Deduplication**: File-backed state tracking to avoid duplicate notifications
 - **Modular architecture**: Easily extensible with new platforms and notifiers via traits
 
 ## Usage
@@ -16,7 +17,7 @@ Kurotsuba's Streamer Notifier - A lightweight CLI tool that monitors streaming p
 # Daemon mode (polls every poll_interval_secs)
 knotify --config config.yaml
 
-# One-shot mode (check once and exit)
+# One-shot mode (check once and exit, cron-friendly)
 knotify --config config.yaml --once
 ```
 
@@ -28,16 +29,17 @@ Create a `config.yaml`:
 poll_interval_secs: 300
 state_file: "./knotify_state.json"
 
-# Required only if monitoring YouTube channels
-youtube_api_key: "YOUR_YOUTUBE_API_KEY"
-
 channels:
   - platform: youtube
-    channel_id: "UCxxxxxxxxxxxxxxxxxxxx"
+    channel_id: "@ShirakamiFubuki"           # YouTube handle (recommended)
+    name: "白上フブキ"                        # Set the name as you wish, in any UTF-8 charactor
+
+  - platform: youtube
+    channel_id: "UCxxxxxxxxxxxxxxxxxxxx" # or YouTube channel ID
     name: "StreamerName"
 
   - platform: bilibili
-    channel_id: "12345"   # room_id from live.bilibili.com/{room_id}
+    channel_id: "12345"                  # room_id from live.bilibili.com/{room_id}
     name: "StreamerName"
 
 notifiers:
@@ -47,26 +49,16 @@ notifiers:
 
 ### Platform notes
 
-| Platform | `channel_id` | API key required |
-|----------|-------------|-----------------|
-| YouTube  | Channel ID (starts with `UC`) | Yes (`youtube_api_key`) |
+| Platform | `channel_id` format | API key required |
+|----------|---------------------|-----------------|
+| YouTube  | `@Handle` or Channel ID (`UC...`) | No |
 | Bilibili | Room ID (number from live URL) | No |
 
-### Getting a YouTube API key
+### Getting a YouTube channel identifier
 
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a project and enable **YouTube Data API v3**
-3. Create an API key under **Credentials**
-
-Note: The free tier allows ~100 checks/day (each search costs 100 quota units out of 10,000/day). Adjust `poll_interval_secs` accordingly.
-
-### Getting a YouTube Channel ID
-1. Get your YouTube API key
-2. Run following command, streamer_name should be something like "@ShirakamiFubuki"
-```
- curl "https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=<streamer_name>&key=<your_api_key>"
-```
-3. Get items[0]["id"], a string starts with "UC".
+Use either format in `channel_id`:
+- **Handle** (recommended): `@ChannelHandle` - found in the channel URL or the homepage of the channel
+- **Channel ID**: `UCxxxxxxxxxxxxxxxxxxxx` - found in the channel page source or via YouTube API
 
 ### Getting a Discord webhook URL
 
@@ -74,11 +66,28 @@ Note: The free tier allows ~100 checks/day (each search costs 100 quota units ou
 2. Go to Integrations > Webhooks > Create Webhook
 3. Copy the webhook URL
 
+### Notification format
+
+When a streamer goes live, knotify sends a Discord embed with:
+
+```
+【直播提醒】
+{channel_name}开播啦
+{stream_title}
+直播间地址：{stream_url}
+```
+
+The stream cover image is attached as an embedded image when available.
+
+TODO: Add compatibility to customed templates.
+
 ## Building
 
 ```bash
 cargo build --release
 ```
+
+Pre-built binaries for Linux and Windows are available from [GitHub Actions](../../actions) workflow runs.
 
 ## TODO
 

@@ -7,57 +7,90 @@ use crate::types::StreamInfo;
 
 pub struct YouTubePlatform {
     client: reqwest::Client,
-    api_key: String,
 }
 
 impl YouTubePlatform {
-    pub fn new(api_key: String) -> Self {
-        YouTubePlatform { client: reqwest::Client::new(), api_key }
+    pub fn new() -> Self {
+        YouTubePlatform { client: reqwest::Client::new() }
     }
 }
 
 #[async_trait]
 impl Platform for YouTubePlatform {
-    fn name(&self) ->  &str {
+    fn name(&self) -> &str {
         "youtube"
     }
 
     async fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
-        let resp = self.client
-            .get("https://www.googleapis.com/youtube/v3/search")
-            .query(&[
-                ("part", "snippet"),
-                ("channelId", &channel.channel_id),
-                ("eventType", "live"),
-                ("type", "video"),
-                ("key", &self.api_key),
-            ])
+        let url = if channel.channel_id.starts_with('@') {
+            format!("https://www.youtube.com/{}/live", channel.channel_id)
+        } else {
+            format!("https://www.youtube.com/channel/{}/live", channel.channel_id)
+        };
+
+        let body = self.client
+            .get(&url)
+            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .send()
             .await?
-            .json::<serde_json::Value>()
+            .text()
             .await?;
 
-        let items = resp["items"].as_array();
-        match items.and_then(|arr| arr.first()) {
-            Some(item) => {
-                let channel_name = item["snippet"]["channelTitle"].as_str().unwrap_or_default();
-                let title = item["snippet"]["title"].as_str().unwrap_or_default();
-                let video_id = item["id"]["videoId"].as_str().unwrap_or_default();
-                let cover = item["snippet"]["thumbnails"]["high"]["url"]
-                    .as_str()
-                    .map(|s| s.to_string());
+        let json_str = match extract_json_object(&body, "var ytInitialPlayerResponse = ") {
+            Some(s) => s,
+            None => return Ok(None),
+        };
 
-                Ok(Some(StreamInfo {
-                    platform: "youtube".to_string(),
-                    channel_id: channel.channel_id.clone(),
-                    channel_name: channel_name.to_string(),
-                    title: title.to_string(),
-                    url: format!("https://www.youtube.com/watch?v={video_id}"),
-                    cover,
-                }))
-            }
-            None => Ok(None),
+        let data: serde_json::Value = serde_json::from_str(&json_str)?;
+        let details = &data["videoDetails"];
+
+        let is_live = details["isLive"].as_bool().unwrap_or(false);
+        if !is_live {
+            return Ok(None);
         }
-    
+
+        let video_id = details["videoId"].as_str().unwrap_or_default();
+        let title = details["title"].as_str().unwrap_or_default();
+        let author = details["author"].as_str().unwrap_or(&channel.name);
+
+        let cover = details["thumbnail"]["thumbnails"]
+            .as_array()
+            .and_then(|arr| arr.last())
+            .and_then(|t| t["url"].as_str())
+            .map(|s| s.to_string());
+
+        Ok(Some(StreamInfo {
+            platform: "youtube".to_string(),
+            channel_id: channel.channel_id.clone(),
+            channel_name: author.to_string(),
+            title: title.to_string(),
+            url: format!("https://www.youtube.com/watch?v={}", video_id),
+            cover,
+        }))
+    }
+}
+
+fn extract_json_object(text: &str, prefix: &str) -> Option<String> {
+    let start = text.find(prefix)? + prefix.len();
+    let bytes = text.as_bytes();
+    let mut depth = 0;
+    let mut end = start;
+    for i in start..bytes.len() {
+        match bytes[i] {
+            b'{' => depth += 1,
+            b'}' => {
+                depth -= 1;
+                if depth == 0 {
+                    end = i + 1;
+                    break;
+                }
+            }
+            _ => {}
+        }
+    }
+    if depth == 0 && end > start {
+        Some(text[start..end].to_string())
+    } else {
+        None
     }
 }
