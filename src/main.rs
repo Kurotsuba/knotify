@@ -5,7 +5,7 @@ mod notifier;
 mod status;
 
 use clap::Parser;
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, io::Read, time::Duration};
 use crate::{notifier::Notifier, platform::Platform};
 
 #[derive(Parser)]
@@ -17,7 +17,7 @@ struct Cli {
     once: bool,
 }
 
-async fn check_and_notify (
+fn check_and_notify (
     platforms: &HashMap<String, Box<dyn Platform>>,
     notifiers: &[Box<dyn Notifier>],
     channels: &[config::ChannelConfig],
@@ -29,7 +29,7 @@ async fn check_and_notify (
             continue;
         };
 
-        let result = match platform.check_live(chn).await {
+        let result = match platform.check_live(chn) {
             Ok(r) => r,
             Err(e) => {println!("Check error: {}", e); continue;},
         };
@@ -40,13 +40,11 @@ async fn check_and_notify (
 
         let Some(sinfo) = result else {continue;};
 
-        let image = match &sinfo.cover {
-            Some(url) => match reqwest::get(url).await {
-                Ok(resp) => resp.bytes().await.ok().map(|b| b.to_vec()),
-                Err(e) => { println!("Failed to fetch cover image: {}", e); None }
-            },
-            None => None,
-        };
+        let image = sinfo.cover.as_ref().and_then(|url| {
+            let mut buf = Vec::new();
+            ureq::get(url).call().ok()?.into_reader().read_to_end(&mut buf).ok()?;
+            Some(buf)
+        });
 
         let notification = types::Notification {
             message: format!(
@@ -57,7 +55,7 @@ async fn check_and_notify (
         };
 
         for ntf in notifiers {
-            if let Err(e) = ntf.notify(&notification).await {
+            if let Err(e) = ntf.notify(&notification) {
                 println!("Notify error {}: {}", ntf.name(), e);
             }
         }
@@ -65,8 +63,7 @@ async fn check_and_notify (
     }
 }
 
-#[tokio::main]
-async fn main() {
+fn main() {
     let cli = Cli::parse();
     let app_config = config::load_config(&cli.config).expect("Fail loading config");
     let mut live_status = status::LiveStatus::load_status(&app_config.state_file);
@@ -104,10 +101,10 @@ async fn main() {
     }
 
     loop {
-        check_and_notify(&platforms, &notifiers, &app_config.channels, &mut live_status).await;
+        check_and_notify(&platforms, &notifiers, &app_config.channels, &mut live_status);
         live_status.save_status(&app_config.state_file).ok();
 
         if cli.once { break; }
-        tokio::time::sleep(Duration::from_secs(app_config.poll_interval_secs as u64)).await;        
+        std::thread::sleep(Duration::from_secs(app_config.poll_interval_secs as u64));
     }
 }

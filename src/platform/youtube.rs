@@ -1,40 +1,33 @@
-use async_trait::async_trait;
 use anyhow::Result;
 
 use crate::platform::Platform;
 use crate::config::ChannelConfig;
 use crate::types::StreamInfo;
 
-pub struct YouTubePlatform {
-    client: reqwest::Client,
-}
+pub struct YouTubePlatform; 
 
 impl YouTubePlatform {
     pub fn new() -> Self {
-        YouTubePlatform { client: reqwest::Client::new() }
+        YouTubePlatform {}
     }
 }
 
-#[async_trait]
 impl Platform for YouTubePlatform {
     fn name(&self) -> &str {
         "youtube"
     }
 
-    async fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
+    fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
         let url = if channel.channel_id.starts_with('@') {
             format!("https://www.youtube.com/{}/live", channel.channel_id)
         } else {
             format!("https://www.youtube.com/channel/{}/live", channel.channel_id)
         };
 
-        let body = self.client
-            .get(&url)
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-            .send()
-            .await?
-            .text()
-            .await?;
+        let body = ureq::get(&url)
+            .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+            .call()?
+            .into_string()?;
 
         let json_str = match extract_json_object(&body, "var ytInitialPlayerResponse = ") {
             Some(s) => s,

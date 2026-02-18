@@ -1,30 +1,26 @@
-use async_trait::async_trait;
 use anyhow::Result;
 
 use crate::notifier::Notifier;
 use crate::types::Notification;
 
 pub struct DiscordNotifier {
-    client: reqwest::Client,
-    webhook_url: String,
+        webhook_url: String,
 }
 
 impl DiscordNotifier {
     pub fn new(webhook_url: String) -> Self {
         DiscordNotifier {
-            client: reqwest::Client::new(),
             webhook_url,
         }
     }
 }
 
-#[async_trait]
 impl Notifier for DiscordNotifier {
     fn name(&self) ->  &str {
         "discord"
     }
 
-    async fn notify(&self, notification: &Notification) -> Result<()>{
+    fn notify(&self, notification: &Notification) -> Result<()>{
         let mut embed = serde_json::json!({
             "description": &notification.message,
             "color": 0x66ffcc
@@ -35,18 +31,27 @@ impl Notifier for DiscordNotifier {
         }
 
         let payload = serde_json::json!({ "embeds": [embed] });
+        let boundry = "knotify_boundry";
 
-        let mut form = reqwest::multipart::Form::new()
-            .text("payload_json", payload.to_string());
+        let mut body: Vec<u8> = Vec::new();
+        body.extend_from_slice(format!(
+            "--{boundry}\r\nContent-Disposition: form-data; name=\"payload_json\"\r\n\r\n{payload}\r\n"
+        ).as_bytes());
 
-        if let Some(image_data) = &notification.image {
-            let part = reqwest::multipart::Part::bytes(image_data.clone())
-                .file_name("cover.jpg")
-                .mime_str("image/jpeg")?;
-            form = form.part("files[0]", part);
+        if let Some(img) = &notification.image {
+            body.extend_from_slice(format!(
+                "--{boundry}\r\nContent-Disposition: form-data; name=\"files[0]\"; filename=\"cover.jpg\"\r\nContent-Type: image/jpeg\r\n\r\n"
+            ).as_bytes());
+            body.extend_from_slice(img);
+            body.extend_from_slice(b"\r\n");
         }
 
-        self.client.post(&self.webhook_url).multipart(form).send().await?;
+        body.extend_from_slice(format!("--{boundry}--\r\n").as_bytes());
+
+        ureq::post(&self.webhook_url)
+            .set("Content-type", &format!("multipart/form-data; boundary={boundry}"))
+            .send_bytes(&body)?;
+
         Ok(())
     }
 }

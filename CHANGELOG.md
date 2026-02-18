@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.1
+
+### Changes
+
+- **Replaced `reqwest` with `ureq`**: Switched to a lightweight blocking HTTP client, significantly reducing binary size and runtime memory usage
+- **Removed `tokio`**: Eliminated the async runtime — all I/O is now synchronous blocking calls
+- **Sync trait methods**: `Platform::check_live` and `Notifier::notify` are now plain `fn`, removing async vtable overhead
+
 ## 0.2.0
 
 ### Features

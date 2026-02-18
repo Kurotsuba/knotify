@@ -1,34 +1,27 @@
-use async_trait::async_trait;
 use anyhow::Result;
 
 use crate::platform::Platform;
 use crate::config::ChannelConfig;
 use crate::types::StreamInfo;
 
-pub struct BilibiliPlatform {
-    client: reqwest::Client,
-}
+pub struct BilibiliPlatform;
 
 impl BilibiliPlatform {
     pub fn new() -> Self {
-        BilibiliPlatform { client: reqwest::Client::new() }
+        BilibiliPlatform
     }
 }
 
-#[async_trait]
 impl Platform for BilibiliPlatform {
     fn name(&self) -> &str {
         "bilibili"
     }
 
-    async fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
-        let resp = self.client
-            .get("https://api.live.bilibili.com/room/v1/Room/get_info")
-            .query(&[("room_id", &channel.channel_id)])
-            .send()
-            .await?
-            .json::<serde_json::Value>()
-            .await?;
+    fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
+        let resp: serde_json::Value = ureq::get("https://api.live.bilibili.com/room/v1/Room/get_info")
+            .query("room_id", &channel.channel_id)
+            .call()?
+            .into_json()?;
 
         let live_status = resp["data"]["live_status"].as_i64().unwrap_or(0);
         if live_status != 1 {
