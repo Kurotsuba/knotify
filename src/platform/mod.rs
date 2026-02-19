@@ -7,5 +7,5 @@ pub mod bilibili;
 
 pub trait Platform: Send + Sync {
     fn name(&self) -> &str;
-    fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>>; 
+    fn check_live(&self, channel: &ChannelConfig, agent: &ureq::Agent) -> Result<Option<StreamInfo>>;
 }

@@ -5,5 +5,5 @@ pub mod discord;
 
 pub trait Notifier : Send + Sync {
     fn name(&self) -> &str;
-    fn notify(&self, notification: &Notification) -> Result<()>;
+    fn notify(&self, notification: &Notification, agent: &ureq::Agent) -> Result<()>;
 }

@@ -17,14 +17,14 @@ impl Platform for YouTubePlatform {
         "youtube"
     }
 
-    fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
+    fn check_live(&self, channel: &ChannelConfig, agent: &ureq::Agent) -> Result<Option<StreamInfo>> {
         let url = if channel.channel_id.starts_with('@') {
             format!("https://www.youtube.com/{}/live", channel.channel_id)
         } else {
             format!("https://www.youtube.com/channel/{}/live", channel.channel_id)
         };
 
-        let body = ureq::get(&url)
+        let body = agent.get(&url)
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .call()?
             .into_string()?;

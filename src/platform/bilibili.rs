@@ -17,8 +17,8 @@ impl Platform for BilibiliPlatform {
         "bilibili"
     }
 
-    fn check_live(&self, channel: &ChannelConfig) -> Result<Option<StreamInfo>> {
-        let resp: serde_json::Value = ureq::get("https://api.live.bilibili.com/room/v1/Room/get_info")
+    fn check_live(&self, channel: &ChannelConfig, agent: &ureq::Agent) -> Result<Option<StreamInfo>> {
+        let resp: serde_json::Value = agent.get("https://api.live.bilibili.com/room/v1/Room/get_info")
             .query("room_id", &channel.channel_id)
             .call()?
             .into_json()?;

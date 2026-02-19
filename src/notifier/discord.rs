@@ -20,7 +20,7 @@ impl Notifier for DiscordNotifier {
         "discord"
     }
 
-    fn notify(&self, notification: &Notification) -> Result<()>{
+    fn notify(&self, notification: &Notification, agent: &ureq::Agent) -> Result<()>{
         let mut embed = serde_json::json!({
             "description": &notification.message,
             "color": 0x66ffcc
@@ -48,7 +48,7 @@ impl Notifier for DiscordNotifier {
 
         body.extend_from_slice(format!("--{boundry}--\r\n").as_bytes());
 
-        ureq::post(&self.webhook_url)
+        agent.post(&self.webhook_url)
             .set("Content-type", &format!("multipart/form-data; boundary={boundry}"))
             .send_bytes(&body)?;
 

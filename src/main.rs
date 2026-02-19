@@ -4,20 +4,34 @@ mod platform;
 mod notifier;
 mod status;
 
-use clap::Parser;
 use std::{collections::HashMap, io::Read, time::Duration};
 use crate::{notifier::Notifier, platform::Platform};
 
-#[derive(Parser)]
 struct Cli {
-    #[arg(short, long, default_value = "config.yaml")]
     config: String,
-
-    #[arg(long)]
     once: bool,
 }
 
-fn check_and_notify (
+impl Cli {
+    fn parse() -> Self {
+        let mut config = "config.yaml".to_string();
+        let mut once = false;
+        let mut args = std::env::args().skip(1);
+        while let Some(arg) = args.next() {
+            match arg.as_str() {
+                "--once" => once = true,
+                "--config" | "-c" => {
+                    config = args.next().expect("--config requires a value");
+                }
+                other => eprintln!("Unknown argument: {}", other),
+            }
+        }
+        Cli { config, once }
+    }
+}
+
+fn check_and_notify(
+    agent: &ureq::Agent,
     platforms: &HashMap<String, Box<dyn Platform>>,
     notifiers: &[Box<dyn Notifier>],
     channels: &[config::ChannelConfig],
@@ -29,7 +43,7 @@ fn check_and_notify (
             continue;
         };
 
-        let result = match platform.check_live(chn) {
+        let result = match platform.check_live(chn, agent) {
             Ok(r) => r,
             Err(e) => {println!("Check error: {}", e); continue;},
         };
@@ -42,7 +56,7 @@ fn check_and_notify (
 
         let image = sinfo.cover.as_ref().and_then(|url| {
             let mut buf = Vec::new();
-            ureq::get(url).call().ok()?.into_reader().read_to_end(&mut buf).ok()?;
+            agent.get(url).call().ok()?.into_reader().read_to_end(&mut buf).ok()?;
             Some(buf)
         });
 
@@ -55,11 +69,10 @@ fn check_and_notify (
         };
 
         for ntf in notifiers {
-            if let Err(e) = ntf.notify(&notification) {
+            if let Err(e) = ntf.notify(&notification, agent) {
                 println!("Notify error {}: {}", ntf.name(), e);
             }
         }
-
     }
 }
 
@@ -100,8 +113,10 @@ fn main() {
         }
     }
 
+    let agent = ureq::Agent::new();
+
     loop {
-        check_and_notify(&platforms, &notifiers, &app_config.channels, &mut live_status);
+        check_and_notify(&agent, &platforms, &notifiers, &app_config.channels, &mut live_status);
         live_status.save_status(&app_config.state_file).ok();
 
         if cli.once { break; }
