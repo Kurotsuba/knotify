@@ -14,7 +14,7 @@ struct Cli {
 
 impl Cli {
     fn parse() -> Self {
-        let mut config = "config.yaml".to_string();
+        let mut config = "config.toml".to_string();
         let mut once = false;
         let mut args = std::env::args().skip(1);
         while let Some(arg) = args.next() {
@@ -29,6 +29,7 @@ impl Cli {
         Cli { config, once }
     }
 }
+
 
 fn check_and_notify(
     agent: &ureq::Agent,

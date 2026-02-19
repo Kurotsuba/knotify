@@ -1,10 +1,12 @@
+use std::io::Read;
+
 use anyhow::Result;
 
 use crate::platform::Platform;
 use crate::config::ChannelConfig;
 use crate::types::StreamInfo;
 
-pub struct YouTubePlatform; 
+pub struct YouTubePlatform;
 
 impl YouTubePlatform {
     pub fn new() -> Self {
@@ -24,12 +26,12 @@ impl Platform for YouTubePlatform {
             format!("https://www.youtube.com/channel/{}/live", channel.channel_id)
         };
 
-        let body = agent.get(&url)
+        let reader = agent.get(&url)
             .set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .call()?
-            .into_string()?;
+            .into_reader();
 
-        let json_str = match extract_json_object(&body, "var ytInitialPlayerResponse = ") {
+        let json_str = match extract_json_streaming(reader, b"var ytInitialPlayerResponse = ") {
             Some(s) => s,
             None => return Ok(None),
         };
@@ -63,27 +65,60 @@ impl Platform for YouTubePlatform {
     }
 }
 
-fn extract_json_object(text: &str, prefix: &str) -> Option<String> {
-    let start = text.find(prefix)? + prefix.len();
-    let bytes = text.as_bytes();
-    let mut depth = 0;
-    let mut end = start;
-    for i in start..bytes.len() {
-        match bytes[i] {
-            b'{' => depth += 1,
-            b'}' => {
-                depth -= 1;
-                if depth == 0 {
-                    end = i + 1;
-                    break;
+fn extract_json_streaming<R: Read>(mut reader: R, prefix: &[u8]) -> Option<String> {
+    const CHUNK: usize = 4096;
+    let plen = prefix.len();
+    let mut scan_buf: Vec<u8> = Vec::new();
+    let mut json_buf: Vec<u8> = Vec::new();
+    let mut in_json = false;
+    let mut depth: i32 = 0;
+
+    loop {
+        let mut chunk = vec![0u8; CHUNK];
+        let n = reader.read(&mut chunk).ok()?;
+        if n == 0 { return None; }
+        chunk.truncate(n);
+
+        if !in_json {
+            scan_buf.extend_from_slice(&chunk);
+            if let Some(pos) = scan_buf.windows(plen).position(|w| w == prefix) {
+                let rest: Vec<u8> = scan_buf[pos + plen..].to_vec();
+                scan_buf = Vec::new();
+                in_json = true;
+                for &b in &rest {
+                    json_buf.push(b);
+                    match b {
+                        b'{' => depth += 1,
+                        b'}' => {
+                            depth -= 1;
+                            if depth == 0 {
+                                return std::str::from_utf8(&json_buf).ok().map(str::to_string);
+                            }
+                        }
+                        _ => {}
+                    }
+                }
+            } else {
+                // Keep last (plen-1) bytes as overlap to detect prefix spanning chunks
+                if scan_buf.len() > plen - 1 {
+                    let trim = scan_buf.len() - (plen - 1);
+                    scan_buf.drain(..trim);
                 }
             }
-            _ => {}
+        } else {
+            for &b in &chunk {
+                json_buf.push(b);
+                match b {
+                    b'{' => depth += 1,
+                    b'}' => {
+                        depth -= 1;
+                        if depth == 0 {
+                            return std::str::from_utf8(&json_buf).ok().map(str::to_string);
+                        }
+                    }
+                    _ => {}
+                }
+            }
         }
-    }
-    if depth == 0 && end > start {
-        Some(text[start..end].to_string())
-    } else {
-        None
     }
 }

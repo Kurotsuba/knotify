@@ -29,7 +29,7 @@ pub struct NotifierConfig {
 
 pub fn load_config(path: &str) -> Result<AppConfig> {
     let contents = std::fs::read_to_string(path)?;
-    let config: AppConfig = serde_yml::from_str(&contents)?;
+    let config: AppConfig = toml::from_str(&contents)?;
     Ok(config)
 }
 
