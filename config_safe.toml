@@ -1,0 +1,11 @@
+poll_interval_secs = 60
+state_file = "./knotify_state.json"
+
+channels = [
+  { platform = "youtube",  channel_id = "@ChannelHandle", name = "Channel Name" },
+  { platform = "bilibili", channel_id = "12345678",       name = "主播名称" },
+]
+
+notifiers = [
+  { type = "discord", endpoint = "https://discord.com/api/webhooks/YOUR_ID/YOUR_TOKEN" },
+]
