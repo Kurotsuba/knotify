@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.0
+
+### Changes
+
+- **TOML configuration**: Replaced YAML config with TOML (`config.toml`); added `config.sample.toml` as a template
+- **Streaming YouTube reads**: Page body is now read as a stream and discarded after the target JSON object is extracted, cutting per-request allocation from ~1 MB to ~12 KB
+- **Shared HTTP agent**: Single `ureq::Agent` initialized in `main` and borrowed throughout, enabling connection pooling across checks
+- **Removed `clap`**: Manual argument parsing replaces the `clap` dependency
+- **Release profile hardening**: `lto`, `opt-level = "z"`, `strip`, `panic = "abort"`, `codegen-units = 1`
+
 ## 0.2.1
 
 ### Changes

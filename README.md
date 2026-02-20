@@ -10,42 +10,38 @@ Kurotsuba's Streamer Notifier - A lightweight CLI tool that monitors streaming p
 - **Flexible runtime**: Run as a daemon (polling loop) or one-shot (cron-friendly)
 - **Deduplication**: File-backed state tracking to avoid duplicate notifications
 - **Modular architecture**: Easily extensible with new platforms and notifiers via traits
+- **Low memory footprint**: Streaming HTTP reads, single shared connection pool, no async runtime
 
 ## Usage
 
 ```bash
 # Daemon mode (polls every poll_interval_secs)
-knotify --config config.yaml
+knotify --config config.toml
 
 # One-shot mode (check once and exit, cron-friendly)
-knotify --config config.yaml --once
+knotify --config config.toml --once
 ```
 
 ## Configuration
 
-Create a `config.yaml`:
+Copy `config_safe.toml` to `config.toml` and fill in your values:
 
-```yaml
-poll_interval_secs: 300
-state_file: "./knotify_state.json"
+```toml
+poll_interval_secs = 60
+state_file = "./knotify_state.json"
 
-channels:
-  - platform: youtube
-    channel_id: "@ShirakamiFubuki"           # YouTube handle (recommended)
-    name: "白上フブキ"                        # Set the name as you wish, in any UTF-8 charactor
+channels = [
+  { platform = "youtube",  channel_id = "@ShirakamiFubuki", name = "白上フブキ" },
+  { platform = "youtube",  channel_id = "UCxxxxxxxxxxxx",   name = "StreamerName" },
+  { platform = "bilibili", channel_id = "12345",            name = "StreamerName" },
+]
 
-  - platform: youtube
-    channel_id: "UCxxxxxxxxxxxxxxxxxxxx" # or YouTube channel ID
-    name: "StreamerName"
-
-  - platform: bilibili
-    channel_id: "12345"                  # room_id from live.bilibili.com/{room_id}
-    name: "StreamerName"
-
-notifiers:
-  - type: discord
-    endpoint: "https://discord.com/api/webhooks/..."
+notifiers = [
+  { type = "discord", endpoint = "https://discord.com/api/webhooks/..." },
+]
 ```
+
+NOTE: This tool is designed to reach minimal memory footprint. Too many channels in one instance will lead to unpleasant waiting. (although negligible memory usage increase) For multiple (10+) channels/notifiers handling, starting multiple instances is recommended.
 
 ### Platform notes
 
@@ -57,8 +53,8 @@ notifiers:
 ### Getting a YouTube channel identifier
 
 Use either format in `channel_id`:
-- **Handle** (recommended): `@ChannelHandle` - found in the channel URL or the homepage of the channel
-- **Channel ID**: `UCxxxxxxxxxxxxxxxxxxxx` - found in the channel page source or via YouTube API
+- **Handle** (recommended): `@ChannelHandle` — found in the channel URL or homepage
+- **Channel ID**: `UCxxxxxxxxxxxxxxxxxxxx` — found in the channel page source
 
 ### Getting a Discord webhook URL
 
@@ -79,8 +75,6 @@ When a streamer goes live, knotify sends a Discord embed with:
 
 The stream cover image is attached as an embedded image when available.
 
-TODO: Add compatibility to customed templates.
-
 ## Building
 
 ```bash
@@ -93,6 +87,7 @@ Pre-built binaries for Linux and Windows are available from [GitHub Actions](../
 
 - [ ] Add video post monitoring
 - [ ] Add text post monitoring
+- [ ] Add customized template support
 
 ## License
 
